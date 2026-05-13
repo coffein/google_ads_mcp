@@ -59,7 +59,7 @@ def update_keyword_status(
   client = get_client(login_customer_id)
   service = client.get_service("AdGroupCriterionService")
   resource_name = service.ad_group_criterion_path(
-      customer_id, f"{ad_group_id}~{criterion_id}"
+      customer_id, ad_group_id, criterion_id
   )
 
   resolved_status = resolve_enum(
