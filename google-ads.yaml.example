@@ -1,0 +1,6 @@
+developer_token: "REPLACE_ME_DEVELOPER_TOKEN"
+client_id: "REPLACE_ME_CLIENT_ID.apps.googleusercontent.com"
+client_secret: "REPLACE_ME_CLIENT_SECRET"
+refresh_token: "REPLACE_ME_REFRESH_TOKEN"
+login_customer_id: "8427925949"
+use_proto_plus: true

@@ -14,6 +14,7 @@
 
 """The server for the Google Ads API MCP."""
 
+import argparse
 import asyncio
 import os
 
@@ -45,6 +46,13 @@ if os.getenv("ADS_MCP_ENABLE_MUTATIONS", "false").lower() == "true":
       ]
   )
 
+if os.getenv("SKALAR_MCP_ENABLE_MUTATIONS", "false").lower() == "true":
+  from ads_mcp import mutations_skalar  # pylint: disable=ungrouped-imports
+  from ads_mcp.safety import init_audit_db
+
+  init_audit_db()  # fail fast if audit DB path is not writable
+  tools.append(mutations_skalar)
+
 if os.getenv("USE_GOOGLE_OAUTH_ACCESS_TOKEN"):
   mcp_server.auth = GoogleTokenVerifier()
 
@@ -59,15 +67,44 @@ if os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID") and os.getenv(
   )
 
 
+def _parse_args() -> argparse.Namespace:
+  parser = argparse.ArgumentParser(description="Google Ads MCP server")
+  parser.add_argument(
+      "--transport",
+      choices=["stdio", "http"],
+      default=os.getenv("MCP_TRANSPORT", "http"),
+      help="Transport: stdio (dev) or http (production). Env: MCP_TRANSPORT.",
+  )
+  parser.add_argument(
+      "--host",
+      default=os.getenv("MCP_HOST", "127.0.0.1"),
+      help="HTTP bind host. Env: MCP_HOST.",
+  )
+  parser.add_argument(
+      "--port",
+      type=int,
+      default=int(os.getenv("MCP_PORT", "3011")),
+      help="HTTP bind port. Env: MCP_PORT.",
+  )
+  return parser.parse_args()
+
+
 def main():
   """Initializes and runs the MCP server."""
+  args = _parse_args()
   asyncio.run(update_views_yaml())  # Check and update docs resource
   get_ads_client()  # Check Google Ads credentials
-  print("mcp server starting...")
-  mcp_server.run(
-      transport="streamable-http",
-      show_banner=False,
-  )  # Initialize and run the server
+  if args.transport == "stdio":
+    print("mcp server starting (stdio)...")
+    mcp_server.run(transport="stdio", show_banner=False)
+  else:
+    print(f"mcp server starting (http on {args.host}:{args.port})...")
+    mcp_server.run(
+        transport="streamable-http",
+        host=args.host,
+        port=args.port,
+        show_banner=False,
+    )
 
 
 if __name__ == "__main__":

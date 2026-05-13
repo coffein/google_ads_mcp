@@ -25,4 +25,5 @@ google-ads.yaml
 
 # Test files
 .coverage
-.pytest_cache
+.pytest_cachescripts/skalar/
+.claude/
