@@ -22,13 +22,12 @@ from ads_mcp.tools._ads_api import service_types
 from fastmcp.exceptions import ToolError
 from google.protobuf import field_mask_pb2
 
-# (strategy_type → field name on Campaign, required-args check)
-_STRATEGIES = {
-    "TARGET_ROAS": ("target_roas", ("target_roas",)),
-    "TARGET_CPA": ("target_cpa", ("target_cpa_micros",)),
-    "MAXIMIZE_CONVERSIONS": ("maximize_conversions", ()),
-    "MAXIMIZE_CONVERSION_VALUE": ("maximize_conversion_value", ()),
-    "MANUAL_CPC": ("manual_cpc", ()),
+_VALID_STRATEGIES = {
+    "TARGET_ROAS",
+    "TARGET_CPA",
+    "MAXIMIZE_CONVERSIONS",
+    "MAXIMIZE_CONVERSION_VALUE",
+    "MANUAL_CPC",
 }
 
 
@@ -72,12 +71,12 @@ def update_campaign_bidding_strategy(
       ``{dry_run, expected_changes, resource_names, audit_id}``.
   """
   st = strategy_type.upper()
-  if st not in _STRATEGIES:
+  if st not in _VALID_STRATEGIES:
     raise ToolError(
-        f"Invalid strategy_type {strategy_type!r}. Valid: {list(_STRATEGIES)}."
+        f"Invalid strategy_type {strategy_type!r}. "
+        f"Valid: {sorted(_VALID_STRATEGIES)}."
     )
 
-  field_name, _ = _STRATEGIES[st]
   customer_id = normalise_id(customer_id)
   campaign_id = normalise_id(campaign_id)
   client = get_client(login_customer_id)
@@ -85,22 +84,35 @@ def update_campaign_bidding_strategy(
       customer_id, campaign_id
   )
 
+  # Build campaign + mask in lockstep. Google rejects two shapes:
+  #  (a) a Message-typed top-level path on the mask without listing a
+  #      subfield ("field mask updated a field with subfields: 'X'") —
+  #      empty messages still count as "having subfields";
+  #  (b) a oneof set without a value populated ("required field was not
+  #      present") if the proto-plus assignment is only a read access.
+  # Pin both: assign the message via client.get_type() AND list at least
+  # one concrete subfield path (the soft-target field is the natural anchor
+  # for the empty-payload strategies — sending it as 0 means "no soft cap").
   campaign = resource_types.Campaign(resource_name=resource_name)
   expected_value: dict = {"strategy_type": st}
+  mask_paths: list[str] = []
 
   if st == "TARGET_ROAS":
     if target_roas is None:
       raise ToolError("target_roas is required for TARGET_ROAS strategy.")
+    campaign.target_roas = client.get_type("TargetRoas")
     campaign.target_roas.target_roas = float(target_roas)
+    mask_paths.append("target_roas.target_roas")
     expected_value["target_roas"] = target_roas
   elif st == "TARGET_CPA":
     if target_cpa_micros is None:
       raise ToolError("target_cpa_micros is required for TARGET_CPA strategy.")
+    campaign.target_cpa = client.get_type("TargetCpa")
     campaign.target_cpa.target_cpa_micros = int(target_cpa_micros)
+    mask_paths.append("target_cpa.target_cpa_micros")
     expected_value["target_cpa_micros"] = target_cpa_micros
   elif st == "MAXIMIZE_CONVERSIONS":
-    # Touching the field activates the strategy even when the soft target is None.
-    _ = campaign.maximize_conversions
+    campaign.maximize_conversions = client.get_type("MaximizeConversions")
     if target_cpa_micros_for_max_conv is not None:
       campaign.maximize_conversions.target_cpa_micros = int(
           target_cpa_micros_for_max_conv
@@ -108,8 +120,11 @@ def update_campaign_bidding_strategy(
       expected_value["target_cpa_micros_for_max_conv"] = (
           target_cpa_micros_for_max_conv
       )
+    mask_paths.append("maximize_conversions.target_cpa_micros")
   elif st == "MAXIMIZE_CONVERSION_VALUE":
-    _ = campaign.maximize_conversion_value
+    campaign.maximize_conversion_value = client.get_type(
+        "MaximizeConversionValue"
+    )
     if target_roas_for_max_conv_value is not None:
       campaign.maximize_conversion_value.target_roas = float(
           target_roas_for_max_conv_value
@@ -117,16 +132,20 @@ def update_campaign_bidding_strategy(
       expected_value["target_roas_for_max_conv_value"] = (
           target_roas_for_max_conv_value
       )
+    mask_paths.append("maximize_conversion_value.target_roas")
   elif st == "MANUAL_CPC":
+    campaign.manual_cpc = client.get_type("ManualCpc")
     campaign.manual_cpc.enhanced_cpc_enabled = bool(enhanced_cpc)
+    mask_paths.append("manual_cpc.enhanced_cpc_enabled")
     expected_value["enhanced_cpc"] = bool(enhanced_cpc)
 
   operation = service_types.CampaignOperation(update=campaign)
-  operation.update_mask.CopyFrom(field_mask_pb2.FieldMask(paths=[field_name]))
+  operation.update_mask.CopyFrom(field_mask_pb2.FieldMask(paths=mask_paths))
 
   expected_changes = [{
       "resource_name": resource_name,
-      "field": field_name,
+      "field": st,
+      "update_mask_paths": mask_paths,
       "new_value": expected_value,
   }]
 
