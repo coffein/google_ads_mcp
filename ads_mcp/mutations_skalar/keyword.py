@@ -177,6 +177,143 @@ def add_keywords_to_ad_group(
 @mcp.tool()
 @audit()
 @require_allowed_account
+def add_negative_keywords_to_campaign(
+    customer_id: str,
+    campaign_id: str,
+    keywords: list[str],
+    match_type: str = "EXACT",
+    dry_run: bool = True,
+    login_customer_id: str | None = None,
+) -> dict:
+  """Adds negative keywords directly on a campaign (no shared set).
+
+  Use this when the negative should apply to ONE campaign only — e.g. a
+  brand-defense exclusion that's specific to a single product line. For
+  agency-wide negatives reuse via add_negative_keywords_to_shared_set.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      campaign_id: Campaign ID (digits only).
+      keywords: List of negative keyword strings.
+      match_type: EXACT | PHRASE | BROAD. Default EXACT.
+      dry_run: When True (default) the change is validated but NOT applied.
+      login_customer_id: MCC ID if customer is managed.
+
+  Returns:
+      ``{dry_run, expected_changes, resource_names, audit_id}``.
+  """
+  if not keywords:
+    raise ToolError("keywords must not be empty")
+  customer_id = normalise_id(customer_id)
+  campaign_id = normalise_id(campaign_id)
+  client = get_client(login_customer_id)
+  campaign_path = client.get_service("CampaignService").campaign_path(
+      customer_id, campaign_id
+  )
+  resolved_mt = resolve_enum(
+      enum_types.KeywordMatchTypeEnum.KeywordMatchType, match_type, "match_type"
+  )
+  operations: list = []
+  expected_changes: list[dict] = []
+  for text in keywords:
+    if not text or not isinstance(text, str):
+      raise ToolError(f"keyword must be a non-empty string, got {text!r}")
+    cc = resource_types.CampaignCriterion(campaign=campaign_path, negative=True)
+    cc.keyword.text = text
+    cc.keyword.match_type = resolved_mt
+    operations.append(service_types.CampaignCriterionOperation(create=cc))
+    expected_changes.append({
+        "campaign": campaign_path,
+        "negative": True,
+        "text": text,
+        "match_type": match_type.upper(),
+    })
+  response = wrap_google_ads_error(lambda: execute_mutation(
+      client=client,
+      service_name="CampaignCriterionService",
+      method_name="mutate_campaign_criteria",
+      request_type_name="MutateCampaignCriteriaRequest",
+      customer_id=customer_id,
+      operations=operations,
+      dry_run=dry_run,
+  ))
+  return build_result(
+      dry_run=dry_run, expected_changes=expected_changes, response=response
+  )
+
+
+@mcp.tool()
+@audit()
+@require_allowed_account
+def add_negative_keywords_to_ad_group(
+    customer_id: str,
+    ad_group_id: str,
+    keywords: list[str],
+    match_type: str = "EXACT",
+    dry_run: bool = True,
+    login_customer_id: str | None = None,
+) -> dict:
+  """Adds negative keywords scoped to ONE ad group.
+
+  Tighter scope than campaign-level negatives — only this ad group's
+  search terms are filtered. Useful for fine-grained match-type tuning.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      ad_group_id: Ad group ID (digits only).
+      keywords: List of negative keyword strings.
+      match_type: EXACT | PHRASE | BROAD. Default EXACT.
+      dry_run: When True (default) the change is validated but NOT applied.
+      login_customer_id: MCC ID if customer is managed.
+
+  Returns:
+      ``{dry_run, expected_changes, resource_names, audit_id}``.
+  """
+  if not keywords:
+    raise ToolError("keywords must not be empty")
+  customer_id = normalise_id(customer_id)
+  ad_group_id = normalise_id(ad_group_id)
+  client = get_client(login_customer_id)
+  ad_group_path = client.get_service("AdGroupService").ad_group_path(
+      customer_id, ad_group_id
+  )
+  resolved_mt = resolve_enum(
+      enum_types.KeywordMatchTypeEnum.KeywordMatchType, match_type, "match_type"
+  )
+  operations: list = []
+  expected_changes: list[dict] = []
+  for text in keywords:
+    if not text or not isinstance(text, str):
+      raise ToolError(f"keyword must be a non-empty string, got {text!r}")
+    agc = resource_types.AdGroupCriterion(
+        ad_group=ad_group_path, negative=True
+    )
+    agc.keyword.text = text
+    agc.keyword.match_type = resolved_mt
+    operations.append(service_types.AdGroupCriterionOperation(create=agc))
+    expected_changes.append({
+        "ad_group": ad_group_path,
+        "negative": True,
+        "text": text,
+        "match_type": match_type.upper(),
+    })
+  response = wrap_google_ads_error(lambda: execute_mutation(
+      client=client,
+      service_name="AdGroupCriterionService",
+      method_name="mutate_ad_group_criteria",
+      request_type_name="MutateAdGroupCriteriaRequest",
+      customer_id=customer_id,
+      operations=operations,
+      dry_run=dry_run,
+  ))
+  return build_result(
+      dry_run=dry_run, expected_changes=expected_changes, response=response
+  )
+
+
+@mcp.tool()
+@audit()
+@require_allowed_account
 def add_negative_keywords_to_shared_set(
     customer_id: str,
     shared_set_id: str,
