@@ -6,9 +6,21 @@ This branch (`skalar/main`) extends [google-marketing-solutions/google_ads_mcp](
 
 | | |
 |---|---|
-| 6 write tools | `update_campaign_status`, `update_campaign_budget`, `update_ad_group_status`, `update_keyword_status`, `add_keywords_to_ad_group`, `add_negative_keywords_to_shared_set` |
+| **20 write tools** (see catalogue below) | grouped by domain in `mutations_skalar/` |
 | Safety layer | Account whitelist, dry-run-by-default, SQLite audit log, structured Google Ads errors |
 | Transport flag | `--transport stdio\|http`, `--host`, `--port` (defaults to `http` on `127.0.0.1:3011`) |
+
+### Tool catalogue
+
+| Domain | Tools |
+|---|---|
+| Campaigns | `update_campaign_status`, `update_campaign_budget`, `update_campaign_bidding_strategy` |
+| Ad groups | `update_ad_group_status` |
+| Keywords (positive) | `add_keywords_to_ad_group`, `update_keyword_status` |
+| Keywords (negative) | `add_negative_keywords_to_campaign`, `add_negative_keywords_to_ad_group`, `add_negative_keywords_to_shared_set` |
+| Bid modifiers | `set_campaign_device_bid_modifier`, `set_campaign_location_bid_modifier`, `set_campaign_ad_schedule_bid_modifier` |
+| Shopping listing groups | `update_listing_group_unit_bid`, `update_listing_group_unit_status`, `create_listing_group_subdivision`, `create_listing_group_unit`, `delete_listing_group_node` |
+| Conversion value rules | `create_conversion_value_rule`, `update_conversion_value_rule`, `remove_conversion_value_rule` |
 
 The upstream `ADS_MCP_ENABLE_MUTATIONS=true` flag is **left off**. Upstream's mutation tools have no whitelist, no dry-run, no audit, and would otherwise be exposed unguarded next to ours.
 
