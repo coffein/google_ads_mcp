@@ -12,6 +12,7 @@ Toggle via env: SKALAR_MCP_ENABLE_MUTATIONS=true (default false).
 """
 
 from ads_mcp.mutations_skalar import ad_group  # noqa: F401
+from ads_mcp.mutations_skalar import asset  # noqa: F401
 from ads_mcp.mutations_skalar import bid_modifier  # noqa: F401
 from ads_mcp.mutations_skalar import bidding  # noqa: F401
 from ads_mcp.mutations_skalar import campaign  # noqa: F401
