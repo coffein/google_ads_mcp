@@ -239,15 +239,16 @@ def unlink_asset_from_asset_group(
   asset_group_id = normalise_id(asset_group_id)
   asset_id = normalise_id(asset_id)
   field_type_upper = field_type.upper()
-  resolved_field_type = _resolve_field_type(field_type_upper)
+  _resolve_field_type(field_type_upper)  # validate enum name
 
   client = get_client(login_customer_id)
-  # Composite resource name uses the integer enum value as the field_type
-  # component, not the name.
+  # Composite resource name uses the field_type enum NAME (e.g. "HEADLINE"),
+  # not the integer value — the API rejects "...~2" with
+  # "'2' part of the resource name is invalid".
   resource_name = client.get_service(
       "AssetGroupAssetService"
   ).asset_group_asset_path(
-      customer_id, asset_group_id, asset_id, str(int(resolved_field_type))
+      customer_id, asset_group_id, asset_id, field_type_upper
   )
   op = service_types.AssetGroupAssetOperation(remove=resource_name)
   expected_changes = [{
@@ -380,10 +381,9 @@ def rotate_asset_group_text(
     if asset_ids_to_unlink:
       unlink_ops = []
       svc = client.get_service("AssetGroupAssetService")
-      ft_int = str(int(resolved_field_type))
       for aid in asset_ids_to_unlink:
         rn = svc.asset_group_asset_path(
-            customer_id, asset_group_id, aid, ft_int
+            customer_id, asset_group_id, aid, field_type_upper
         )
         unlink_ops.append(service_types.AssetGroupAssetOperation(remove=rn))
       wrap_google_ads_error(lambda: execute_mutation(
@@ -453,11 +453,10 @@ def rotate_asset_group_text(
   unlinked: list[str] = []
   if asset_ids_to_unlink:
     svc = client.get_service("AssetGroupAssetService")
-    ft_int = str(int(resolved_field_type))
     unlink_ops = []
     for aid in asset_ids_to_unlink:
       rn = svc.asset_group_asset_path(
-          customer_id, asset_group_id, aid, ft_int
+          customer_id, asset_group_id, aid, field_type_upper
       )
       unlink_ops.append(service_types.AssetGroupAssetOperation(remove=rn))
     unlink_resp = wrap_google_ads_error(lambda: execute_mutation(
@@ -583,7 +582,7 @@ def update_asset_group_asset_status(
   asset_group_id = normalise_id(asset_group_id)
   asset_id = normalise_id(asset_id)
   field_type_upper = field_type.upper()
-  resolved_field_type = _resolve_field_type(field_type_upper)
+  _resolve_field_type(field_type_upper)  # validate enum name
   resolved_status = resolve_enum(
       enum_types.AssetLinkStatusEnum.AssetLinkStatus, status, "status"
   )
@@ -592,7 +591,7 @@ def update_asset_group_asset_status(
   resource_name = client.get_service(
       "AssetGroupAssetService"
   ).asset_group_asset_path(
-      customer_id, asset_group_id, asset_id, str(int(resolved_field_type))
+      customer_id, asset_group_id, asset_id, field_type_upper
   )
   link = resource_types.AssetGroupAsset(
       resource_name=resource_name, status=resolved_status
