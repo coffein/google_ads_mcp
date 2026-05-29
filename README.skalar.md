@@ -6,7 +6,7 @@ This branch (`skalar/main`) extends [google-marketing-solutions/google_ads_mcp](
 
 | | |
 |---|---|
-| **20 write tools** (see catalogue below) | grouped by domain in `mutations_skalar/` |
+| **25 write tools** (see catalogue below) | grouped by domain in `mutations_skalar/` |
 | Safety layer | Account whitelist, dry-run-by-default, SQLite audit log, structured Google Ads errors |
 | Transport flag | `--transport stdio\|http`, `--host`, `--port` (defaults to `http` on `127.0.0.1:3011`) |
 
@@ -20,6 +20,8 @@ This branch (`skalar/main`) extends [google-marketing-solutions/google_ads_mcp](
 | Keywords (negative) | `add_negative_keywords_to_campaign`, `add_negative_keywords_to_ad_group`, `add_negative_keywords_to_shared_set` |
 | Bid modifiers | `set_campaign_device_bid_modifier`, `set_campaign_location_bid_modifier`, `set_campaign_ad_schedule_bid_modifier` |
 | Shopping listing groups | `update_listing_group_unit_bid`, `update_listing_group_unit_status`, `create_listing_group_subdivision`, `create_listing_group_unit`, `delete_listing_group_node` |
+| PMax asset groups | `create_asset_group`, `update_asset_group_status` |
+| PMax listing-group filters | `create_asset_group_listing_group_filter_subdivision`, `create_asset_group_listing_group_filter_unit`, `delete_asset_group_listing_group_filter` |
 | Conversion value rules | `create_conversion_value_rule`, `update_conversion_value_rule`, `remove_conversion_value_rule` |
 
 The upstream `ADS_MCP_ENABLE_MUTATIONS=true` flag is **left off**. Upstream's mutation tools have no whitelist, no dry-run, no audit, and would otherwise be exposed unguarded next to ours.
@@ -29,7 +31,7 @@ The upstream `ADS_MCP_ENABLE_MUTATIONS=true` flag is **left off**. Upstream's mu
 Two env vars activate the Skalar surface; a third pins the audit DB:
 
 ```bash
-SKALAR_MCP_ENABLE_MUTATIONS=true            # registers the 6 write tools
+SKALAR_MCP_ENABLE_MUTATIONS=true            # registers the write-tool surface
 GOOGLE_ADS_ALLOWED_ACCOUNTS=3332619762      # comma-separated customer IDs
 GOOGLE_ADS_AUDIT_DB=/var/lib/mcp-google-ads/audit.db   # default if unset
 ```
@@ -71,12 +73,18 @@ ads_mcp/
     whitelist.py
     audit.py
     errors.py
-  mutations_skalar/        ← the 6 write tools
+  mutations_skalar/        ← the Skalar write tools, one file per domain
     _common.py             ← validate_only helper, enum resolver, result shape
-    campaign.py            ← update_campaign_status, update_campaign_budget
-    ad_group.py            ← update_ad_group_status
-    keyword.py             ← update_keyword_status, add_keywords_to_ad_group,
-                             add_negative_keywords_to_shared_set
+    campaign.py            ← campaign status / budget / bidding-strategy
+    ad_group.py            ← ad-group status
+    keyword.py             ← keyword + negative-keyword tools
+    bid_modifier.py        ← device / location / ad-schedule modifiers
+    bidding.py             ← campaign bidding-strategy switch
+    listing_group.py       ← Shopping listing-group tree mutations
+    asset.py               ← PMax text-asset library + link rotation
+    asset_group.py         ← PMax AssetGroup create + status
+    asset_group_listing_group_filter.py   ← PMax product-partition tree
+    conversion_value_rule.py
 tests/safety/              ← 11 unit tests (whitelist, audit decorators)
 ```
 
