@@ -327,3 +327,203 @@ def delete_asset_group_listing_group_filter(
   return build_result(
       dry_run=dry_run, expected_changes=expected_changes, response=response
   )
+
+
+# Temporary negative IDs for the 3-node atomic tree create. Must be negative
+# per the API's temp-resource-name convention so the parent_listing_group_filter
+# references on the child nodes resolve within the same mutate batch.
+# https://developers.google.com/google-ads/api/docs/mutating/best-practices#temporary_resource_names
+_ROOT_TEMP_ID = "-1"
+_UNIT_VALUE_TEMP_ID = "-2"
+_UNIT_OTHER_TEMP_ID = "-3"
+
+
+@mcp.tool()
+@audit()
+@require_allowed_account
+def create_asset_group_listing_group_two_way_split(
+    customer_id: str,
+    asset_group_id: str,
+    dimension: dict,
+    listing_source: str = "SHOPPING",
+    dry_run: bool = True,
+    login_customer_id: str | None = None,
+) -> dict:
+  """Atomically creates a Root + 2-leaf PMAX listing-group tree.
+
+  Builds the minimal "split inventory in two" tree in ONE
+  GoogleAdsService.mutate batch — either all three nodes land or none do::
+
+      Root (SUBDIVISION, no dimension)
+      ├── UNIT_INCLUDED  (dimension)         ← the carved-out bucket
+      └── UNIT_INCLUDED  (same key, value=None) ← everything-else sibling
+
+  Typical use: ``dimension={"product_custom_attr0": "Topseller"}`` splits the
+  asset group's inventory into a Topseller bucket and an everything-else
+  bucket. Both are INCLUDED, so all products keep serving from this asset
+  group — the tree just prepares the structure so one branch can later be
+  flipped to EXCLUDED, or so a sibling asset group can target the other
+  bucket directly.
+
+  Args:
+      customer_id: Google Ads customer ID (digits only).
+      asset_group_id: AssetGroup ID (digits only). Must NOT already have a
+          listing-group tree — the API rejects the batch otherwise.
+      dimension: One-key dict for the carved-out bucket. The value MUST NOT
+          be None (the "other" sibling is auto-generated with value=None on
+          the same key). Common picks:
+
+            * ``{"product_custom_attr0": "Topseller"}``
+            * ``{"product_brand": "Nike"}``
+            * ``{"product_condition": "NEW"}``
+            * ``{"product_type_l1": "Apparel"}``
+            * ``{"product_category_l1": 123}``
+
+      listing_source: SHOPPING (retail PMAX) | WEBPAGE. Default SHOPPING.
+      dry_run: When True (default) the batch is validated but NOT applied.
+      login_customer_id: MCC ID if customer is managed.
+
+  Returns:
+      ``{dry_run, expected_changes, resource_names, root_resource_name,
+      value_unit_resource_name, other_unit_resource_name, audit_id}``.
+      The three ``*_resource_name`` fields are None in dry_run mode.
+  """
+  if not isinstance(dimension, dict) or len(dimension) != 1:
+    raise ToolError(
+        f"dimension must be a dict with exactly one key, got {dimension!r}"
+    )
+  key, value = next(iter(dimension.items()))
+  if value is None:
+    raise ToolError(
+        "dimension value must not be None — the other-sibling is auto-generated."
+    )
+
+  customer_id = normalise_id(customer_id)
+  asset_group_id = normalise_id(asset_group_id)
+  client = get_client(login_customer_id)
+
+  asset_group_service = client.get_service("AssetGroupService")
+  filter_service = client.get_service("AssetGroupListingGroupFilterService")
+  googleads_service = client.get_service("GoogleAdsService")
+
+  asset_group_path = asset_group_service.asset_group_path(
+      customer_id, asset_group_id
+  )
+  root_path = filter_service.asset_group_listing_group_filter_path(
+      customer_id, asset_group_id, _ROOT_TEMP_ID
+  )
+  value_path = filter_service.asset_group_listing_group_filter_path(
+      customer_id, asset_group_id, _UNIT_VALUE_TEMP_ID
+  )
+  other_path = filter_service.asset_group_listing_group_filter_path(
+      customer_id, asset_group_id, _UNIT_OTHER_TEMP_ID
+  )
+
+  resolved_source = resolve_enum(
+      enum_types.ListingGroupFilterListingSourceEnum.ListingGroupFilterListingSource,
+      listing_source,
+      "listing_source",
+  )
+  type_subdiv = resolve_enum(
+      enum_types.ListingGroupFilterTypeEnum.ListingGroupFilterType,
+      "SUBDIVISION",
+      "filter_type",
+  )
+  type_unit = resolve_enum(
+      enum_types.ListingGroupFilterTypeEnum.ListingGroupFilterType,
+      "UNIT_INCLUDED",
+      "filter_type",
+  )
+
+  # 1) Root SUBDIVISION
+  op_root = client.get_type("MutateOperation")
+  root = op_root.asset_group_listing_group_filter_operation.create
+  root.resource_name = root_path
+  root.asset_group = asset_group_path
+  root.type_ = type_subdiv
+  root.listing_source = resolved_source
+
+  # 2) UNIT_INCLUDED with the user-supplied dimension value
+  op_value = client.get_type("MutateOperation")
+  value_unit = op_value.asset_group_listing_group_filter_operation.create
+  value_unit.resource_name = value_path
+  value_unit.asset_group = asset_group_path
+  value_unit.parent_listing_group_filter = root_path
+  value_unit.type_ = type_unit
+  value_unit.listing_source = resolved_source
+  _set_filter_dimension(value_unit.case_value, dimension)
+
+  # 3) UNIT_INCLUDED "other"-sibling — same dimension key, no value
+  op_other = client.get_type("MutateOperation")
+  other_unit = op_other.asset_group_listing_group_filter_operation.create
+  other_unit.resource_name = other_path
+  other_unit.asset_group = asset_group_path
+  other_unit.parent_listing_group_filter = root_path
+  other_unit.type_ = type_unit
+  other_unit.listing_source = resolved_source
+  _set_filter_dimension(other_unit.case_value, {key: None})
+
+  operations = [op_root, op_value, op_other]
+
+  expected_changes = [
+      {
+          "stage": "create_root",
+          "asset_group": asset_group_path,
+          "type": "SUBDIVISION",
+          "listing_source": listing_source.upper(),
+      },
+      {
+          "stage": "create_value_unit",
+          "asset_group": asset_group_path,
+          "type": "UNIT_INCLUDED",
+          "dimension": dimension,
+          "listing_source": listing_source.upper(),
+      },
+      {
+          "stage": "create_other_unit",
+          "asset_group": asset_group_path,
+          "type": "UNIT_INCLUDED",
+          "dimension": {key: None},
+          "listing_source": listing_source.upper(),
+      },
+  ]
+
+  request = client.get_type("MutateGoogleAdsRequest")
+  request.customer_id = customer_id
+  request.mutate_operations.extend(operations)
+  request.validate_only = bool(dry_run)
+
+  response = wrap_google_ads_error(
+      lambda: googleads_service.mutate(request=request)
+  )
+
+  if dry_run:
+    return {
+        "dry_run": True,
+        "expected_changes": expected_changes,
+        "resource_names": None,
+        "root_resource_name": None,
+        "value_unit_resource_name": None,
+        "other_unit_resource_name": None,
+    }
+
+  resource_names: list[str] = []
+  for r in response.mutate_operation_responses:
+    which = r._pb.WhichOneof("response")
+    if which == "asset_group_listing_group_filter_result":
+      resource_names.append(
+          r.asset_group_listing_group_filter_result.resource_name
+      )
+
+  return {
+      "dry_run": False,
+      "expected_changes": expected_changes,
+      "resource_names": resource_names,
+      "root_resource_name": resource_names[0] if len(resource_names) > 0 else None,
+      "value_unit_resource_name": (
+          resource_names[1] if len(resource_names) > 1 else None
+      ),
+      "other_unit_resource_name": (
+          resource_names[2] if len(resource_names) > 2 else None
+      ),
+  }

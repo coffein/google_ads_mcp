@@ -6,7 +6,7 @@ This branch (`skalar/main`) extends [google-marketing-solutions/google_ads_mcp](
 
 | | |
 |---|---|
-| **25 write tools** (see catalogue below) | grouped by domain in `mutations_skalar/` |
+| **26 write tools** (see catalogue below) | grouped by domain in `mutations_skalar/` |
 | Safety layer | Account whitelist, dry-run-by-default, SQLite audit log, structured Google Ads errors |
 | Transport flag | `--transport stdio\|http`, `--host`, `--port` (defaults to `http` on `127.0.0.1:3011`) |
 
@@ -21,7 +21,7 @@ This branch (`skalar/main`) extends [google-marketing-solutions/google_ads_mcp](
 | Bid modifiers | `set_campaign_device_bid_modifier`, `set_campaign_location_bid_modifier`, `set_campaign_ad_schedule_bid_modifier` |
 | Shopping listing groups | `update_listing_group_unit_bid`, `update_listing_group_unit_status`, `create_listing_group_subdivision`, `create_listing_group_unit`, `delete_listing_group_node` |
 | PMax asset groups | `create_asset_group`, `update_asset_group_status` |
-| PMax listing-group filters | `create_asset_group_listing_group_filter_subdivision`, `create_asset_group_listing_group_filter_unit`, `delete_asset_group_listing_group_filter` |
+| PMax listing-group filters | `create_asset_group_listing_group_filter_subdivision`, `create_asset_group_listing_group_filter_unit`, `delete_asset_group_listing_group_filter`, `create_asset_group_listing_group_two_way_split` (atomic Root + 2-leaf split) |
 | Conversion value rules | `create_conversion_value_rule`, `update_conversion_value_rule`, `remove_conversion_value_rule` |
 
 The upstream `ADS_MCP_ENABLE_MUTATIONS=true` flag is **left off**. Upstream's mutation tools have no whitelist, no dry-run, no audit, and would otherwise be exposed unguarded next to ours.
