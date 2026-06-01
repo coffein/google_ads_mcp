@@ -16,8 +16,9 @@ Resource shape:
                          resource_name: customers/{c}/adGroupAssets/{ag}~{a}~{ft_name}
 
 API rules to know:
-  * percent_off is INT64 of MICROS, where 1% = 1_000_000 (so 20.0% = 20_000_000).
-    The tool accepts the friendly float (e.g. 20.0) and converts.
+  * percent_off is INT64 of MICROS where 1_000_000 == 100% (so 1% = 10_000
+    and 20.0% = 200_000). The tool accepts the friendly float (e.g. 20.0)
+    and applies the conversion.
   * Exactly one of percent_off / money_amount_off may be set per asset.
   * promotion_code and orders_over_amount are independent optional fields
     (you can have either, both, or neither).
@@ -53,7 +54,7 @@ _FIELD_TYPE_PROMOTION = "PROMOTION"
 _PROMOTION_TARGET_MAX_LEN = 20
 _PROMOTION_CODE_MAX_LEN = 15
 _TERMS_MAX_LEN = 200
-_PERCENT_TO_MICROS = 1_000_000
+_PERCENT_TO_MICROS = 10_000  # Google Ads scales percent_off so 1_000_000 = 100%
 _PERCENT_MIN = 1.0
 _PERCENT_MAX = 100.0
 
@@ -315,9 +316,9 @@ def create_promotion_asset(
       language_code: BCP-47 language code, e.g. "de".
       start_date: Display-window start (YYYY-MM-DD).
       end_date: Display-window end (YYYY-MM-DD); >= start_date.
-      percent_off: Discount percent in [1.0, 100.0]. Converted to micros
-          internally (1% = 1_000_000 micros). Mutually exclusive with
-          money_amount_off_micros.
+      percent_off: Discount percent in [1.0, 100.0]. Stored on the API
+          as percent × 10_000 (Google's scale: 1_000_000 = 100%).
+          Mutually exclusive with money_amount_off_micros.
       money_amount_off_micros: Fixed discount in micros of the given
           currency. Mutually exclusive with percent_off.
       money_amount_off_currency_code: ISO 4217 currency for the money
