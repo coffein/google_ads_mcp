@@ -21,3 +21,4 @@ from ads_mcp.mutations_skalar import campaign  # noqa: F401
 from ads_mcp.mutations_skalar import conversion_value_rule  # noqa: F401
 from ads_mcp.mutations_skalar import keyword  # noqa: F401
 from ads_mcp.mutations_skalar import listing_group  # noqa: F401
+from ads_mcp.mutations_skalar import promotion_asset  # noqa: F401
