@@ -83,6 +83,12 @@ def test_bundle_reproduces_user_payload(fake_client, captured):
   assert campaign._pb.WhichOneof("campaign_bidding_strategy") == "manual_cpc"
   assert campaign._pb.HasField("manual_cpc")
   assert campaign.manual_cpc._pb.HasField("enhanced_cpc_enabled")
+  # EU TTPA declaration must be set; missing this triggers
+  # [field_error/REQUIRED] field=…contains_eu_political_advertising.
+  assert (
+      campaign.contains_eu_political_advertising.name
+      == "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING"
+  )
 
   ad_group = ops["ad_group_operation"][0]
   assert ad_group.name == "Leistenhammer Brand"

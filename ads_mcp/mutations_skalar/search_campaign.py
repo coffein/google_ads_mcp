@@ -312,6 +312,15 @@ def create_search_campaign_bundle(
   campaign.network_settings.target_search_network = bool(network_search_partners)
   campaign.network_settings.target_content_network = bool(network_content)
   campaign.network_settings.target_partner_search_network = False
+  # EU TTPA (Reg. 2024/900) requires every new campaign to declare whether it
+  # contains political advertising. Skalar is e-commerce; hardcode the
+  # negative declaration. Expose a parameter if a political-advertising
+  # use case ever appears.
+  campaign.contains_eu_political_advertising = (
+      enum_types.EuPoliticalAdvertisingStatusEnum
+      .EuPoliticalAdvertisingStatus
+      .DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING
+  )
   # Field name moved from start_date/end_date to start_date_time/end_date_time
   # in v23+ of the Google Ads API. Setting the legacy name raises
   # AttributeError before the request even reaches Google.
