@@ -6,7 +6,7 @@ This branch (`skalar/main`) extends [google-marketing-solutions/google_ads_mcp](
 
 | | |
 |---|---|
-| **36 write tools** (see catalogue below) | grouped by domain in `mutations_skalar/` |
+| **38 write tools** (see catalogue below) | grouped by domain in `mutations_skalar/` |
 | Safety layer | Account whitelist, dry-run-by-default, SQLite audit log, structured Google Ads errors |
 | Transport flag | `--transport stdio\|http`, `--host`, `--port` (defaults to `http` on `127.0.0.1:3011`) |
 
@@ -17,7 +17,7 @@ This branch (`skalar/main`) extends [google-marketing-solutions/google_ads_mcp](
 | Campaigns | `update_campaign_status`, `update_campaign_budget`, `update_campaign_bidding_strategy` |
 | Search campaign creation | `create_search_campaign_bundle` (atomic: budget + campaign + ad group + RSA + keywords + geo/language in one mutate) |
 | Ad groups | `update_ad_group_status`, `create_ad_group` |
-| Ads | `create_responsive_search_ad` |
+| Ads | `create_responsive_search_ad`, `update_ad_group_ad_status` (pause/enable/remove a single ad), `update_responsive_search_ad` (replace headlines/descriptions/URLs/paths via `AdService.mutate_ads`) |
 | Keywords (positive) | `add_keywords_to_ad_group`, `update_keyword_status` |
 | Keywords (negative) | `add_negative_keywords_to_campaign`, `add_negative_keywords_to_ad_group`, `add_negative_keywords_to_shared_set` |
 | Bid modifiers | `set_campaign_device_bid_modifier`, `set_campaign_location_bid_modifier`, `set_campaign_ad_schedule_bid_modifier` |
@@ -80,6 +80,7 @@ ads_mcp/
     _common.py             ← validate_only helper, enum resolver, result shape
     campaign.py            ← campaign status / budget / bidding-strategy
     ad_group.py            ← ad-group status
+    ad_group_ad.py         ← single-ad status + RSA text/URL update (AdService)
     keyword.py             ← keyword + negative-keyword tools
     bid_modifier.py        ← device / location / ad-schedule modifiers
     bidding.py             ← campaign bidding-strategy switch
@@ -89,7 +90,8 @@ ads_mcp/
     asset_group_listing_group_filter.py   ← PMax product-partition tree
     promotion_asset.py     ← Promotion Assets ("Aktionen") create/link/list
     conversion_value_rule.py
-tests/safety/              ← 11 unit tests (whitelist, audit decorators)
+tests/safety/              ← unit tests (whitelist, audit, error wrapping)
+tests/mutations_skalar/    ← proto-construction tests (no API credentials needed)
 ```
 
 Files under `mutations_skalar/` and `safety/` are isolated from upstream so rebasing onto upstream `main` stays mechanical.
