@@ -312,10 +312,13 @@ def create_search_campaign_bundle(
   campaign.network_settings.target_search_network = bool(network_search_partners)
   campaign.network_settings.target_content_network = bool(network_content)
   campaign.network_settings.target_partner_search_network = False
+  # Field name moved from start_date/end_date to start_date_time/end_date_time
+  # in v23+ of the Google Ads API. Setting the legacy name raises
+  # AttributeError before the request even reaches Google.
   if start_date:
-    campaign.start_date = start_date
+    campaign.start_date_time = start_date
   if end_date:
-    campaign.end_date = end_date
+    campaign.end_date_time = end_date
   _apply_bidding_strategy(
       campaign=campaign,
       client=client,
