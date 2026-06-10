@@ -6,7 +6,7 @@ This branch (`skalar/main`) extends [google-marketing-solutions/google_ads_mcp](
 
 | | |
 |---|---|
-| **33 write tools** (see catalogue below) | grouped by domain in `mutations_skalar/` |
+| **36 write tools** (see catalogue below) | grouped by domain in `mutations_skalar/` |
 | Safety layer | Account whitelist, dry-run-by-default, SQLite audit log, structured Google Ads errors |
 | Transport flag | `--transport stdio\|http`, `--host`, `--port` (defaults to `http` on `127.0.0.1:3011`) |
 
@@ -15,7 +15,9 @@ This branch (`skalar/main`) extends [google-marketing-solutions/google_ads_mcp](
 | Domain | Tools |
 |---|---|
 | Campaigns | `update_campaign_status`, `update_campaign_budget`, `update_campaign_bidding_strategy` |
-| Ad groups | `update_ad_group_status` |
+| Search campaign creation | `create_search_campaign_bundle` (atomic: budget + campaign + ad group + RSA + keywords + geo/language in one mutate) |
+| Ad groups | `update_ad_group_status`, `create_ad_group` |
+| Ads | `create_responsive_search_ad` |
 | Keywords (positive) | `add_keywords_to_ad_group`, `update_keyword_status` |
 | Keywords (negative) | `add_negative_keywords_to_campaign`, `add_negative_keywords_to_ad_group`, `add_negative_keywords_to_shared_set` |
 | Bid modifiers | `set_campaign_device_bid_modifier`, `set_campaign_location_bid_modifier`, `set_campaign_ad_schedule_bid_modifier` |
